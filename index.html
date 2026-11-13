@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>DocuShift Offline | PDF ↔ Word</title>
+  <meta name="description" content="Convierte documentos PDF y Word directamente desde tu navegador.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: { colors: { ink:'#0f172a', accent:'#6366f1' } } } };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.1/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    :root { color-scheme: light; }
+    html.dark { color-scheme: dark; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .glass { background: rgba(255,255,255,.78); backdrop-filter: blur(16px); }
+    .dark .glass { background: rgba(15,23,42,.78); }
+    .drop-zone { transition: .2s ease; }
+    .drop-zone.dragover { border-color:#818cf8; background:rgba(99,102,241,.10); transform:scale(1.01); }
+    .spinner { width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .toast { animation: slide .25s ease-out; }
+    @keyframes slide { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+    .file-row:hover { background:rgba(148,163,184,.09); }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-screen">
+    <header class="border-b border-slate-200/80 dark:border-slate-800">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+        <a href="#" class="flex items-center gap-3" aria-label="DocuShift inicio">
+          <div class="grid h-11 w-11 place-items-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
+            <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v6h5M8 14h8M8 18h8"/></svg>
+          </div>
+          <div><div class="text-lg font-extrabold tracking-tight">DocuShift <span class="text-indigo-600">Offline</span></div><div class="text-xs text-slate-500 dark:text-slate-400">Conversión sencilla de documentos</div></div>
+        </a>
+        <div class="flex items-center gap-2">
+          <span class="hidden rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 sm:inline-flex">● Procesamiento local</span>
+          <button id="themeBtn" class="rounded-xl border border-slate-200 p-2.5 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" title="Cambiar tema" aria-label="Cambiar tema">
+            <svg id="themeIcon" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+          </button>
+          <button id="installBtn" class="hidden rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500">Instalar</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-5 py-10">
+      <section class="mx-auto mb-9 max-w-3xl text-center">
+        <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-300">
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span> Tus archivos permanecen en tu dispositivo
+        </div>
+        <h1 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white sm:text-5xl">Tus documentos, <span class="text-indigo-600">a tu manera.</span></h1>
+        <p class="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-400">Convierte archivos PDF a Word y documentos Word a PDF desde tu navegador, sin subir tus archivos a un servidor.</p>
+      </section>
+
+      <section class="grid gap-5 md:grid-cols-2">
+        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div class="mb-5 flex items-center gap-3">
+            <div class="grid h-12 w-12 place-items-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v6h5M8 14h8M8 18h5"/></svg></div>
+            <div><h2 class="text-lg font-bold">PDF a Word</h2><p class="text-sm text-slate-500 dark:text-slate-400">Extrae el texto de un PDF a DOCX</p></div>
+          </div>
+          <div id="pdfDrop" class="drop-zone rounded-2xl border-2 border-dashed border-slate-300 p-7 text-center dark:border-slate-700">
+            <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden">
+            <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-950/60"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 16v4h16v-4"/></svg></div>
+            <p class="font-semibold">Arrastra tu PDF aquí</p><p class="mt-1 text-sm text-slate-500">o selecciona un archivo de tu equipo</p>
+            <button data-pick="pdfInput" class="mt-4 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700">Seleccionar PDF</button>
+          </div>
+          <div id="pdfSelected" class="mt-4 hidden rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800"></div>
+          <button id="pdfConvert" disabled class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 py-3 font-bold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Convertir a Word</button>
+        </article>
+
+        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div class="mb-5 flex items-center gap-3">
+            <div class="grid h-12 w-12 place-items-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-950"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v6h5M8 14h8M8 18h8"/></svg></div>
+            <div><h2 class="text-lg font-bold">Word a PDF</h2><p class="text-sm text-slate-500 dark:text-slate-400">Convierte DOCX a un documento PDF</p></div>
+          </div>
+          <div id="docxDrop" class="drop-zone rounded-2xl border-2 border-dashed border-slate-300 p-7 text-center dark:border-slate-700">
+            <input id="docxInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden">
+            <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/60"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 16v4h16v-4"/></svg></div>
+            <p class="font-semibold">Arrastra tu Word aquí</p><p class="mt-1 text-sm text-slate-500">o selecciona un archivo de tu equipo</p>
+            <button data-pick="docxInput" class="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Seleccionar Word</button>
+          </div>
+          <div id="docxSelected" class="mt-4 hidden rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800"></div>
+          <button id="docxConvert" disabled class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 py-3 font-bold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Convertir a PDF</button>
+        </article>
+      </section>
+
+      <section class="mt-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div><h2 class="font-bold">Historial de conversiones</h2><p class="text-sm text-slate-500 dark:text-slate-400">Archivos procesados durante esta sesión</p></div>
+          <button id="clearHistory" class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800">Limpiar historial</button>
+        </div>
+        <div id="historyEmpty" class="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:bg-slate-800/60">Aún no has convertido ningún documento.</div>
+        <div id="historyList" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></div>
+      </section>
+
+      <section class="mt-7 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div class="mb-2 text-indigo-600">🔒</div><h3 class="font-bold">Privacidad</h3><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Los documentos se procesan localmente en tu navegador.</p></div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div class="mb-2 text-indigo-600">⚡</div><h3 class="font-bold">Rápido y sencillo</h3><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Selecciona tu archivo y descarga el resultado.</p></div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div class="mb-2 text-indigo-600">📄</div><h3 class="font-bold">Formatos comunes</h3><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Compatible con PDF y documentos DOCX.</p></div>
+      </section>
+      <p class="mx-auto mt-8 max-w-3xl text-center text-xs leading-5 text-slate-400">Nota: PDF a Word recupera principalmente texto; no conserva perfectamente el diseño, las tablas ni las imágenes del PDF. La conversión DOCX a PDF puede variar respecto al diseño original. La primera carga requiere conexión para descargar las bibliotecas externas.</p>
+    </main>
+    <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-500 dark:border-slate-800">© <span id="year"></span> DocuShift Offline · Tus documentos bajo tu control.</footer>
+  </div>
+
+  <div id="toastArea" class="fixed bottom-5 right-5 z-50 flex max-w-sm flex-col gap-2" aria-live="polite"></div>
+  <div id="renameModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-950/60 p-4">
+    <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-lg font-bold">Renombrar archivo</h3><label for="renameInput" class="mt-4 block text-sm text-slate-500">Nuevo nombre</label>
+      <input id="renameInput" class="mt-1 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2 outline-none focus:border-indigo-500 dark:border-slate-700">
+      <div class="mt-4 flex justify-end gap-2"><button id="renameCancel" class="rounded-xl px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button><button id="renameSave" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Guardar</button></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  let pdfFile = null, docxFile = null, deferredInstall = null, history = [], renameIndex = -1;
+  const darkPref = localStorage.getItem("docushift-theme");
+  if (darkPref === "dark" || (!darkPref && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
+  $("themeBtn").addEventListener("click", () => {
+    document.documentElement.classList.toggle("dark");
+    localStorage.setItem("docushift-theme", document.documentElement.classList.contains("dark") ? "dark" : "light");
+  });
+  $("year").textContent = new Date().getFullYear();
+  if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  function toast(message, type="info") {
+    const el = document.createElement("div");
+    const colors = type === "error" ? "bg-rose-600" : type === "success" ? "bg-emerald-600" : "bg-slate-900";
+    el.className = `toast ${colors} rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg`;
+    el.textContent = message; $("toastArea").appendChild(el); setTimeout(() => el.remove(), 3800);
+  }
+  function safeBaseName(name) { return name.replace(/\.[^.]+$/, "").replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim() || "documento"; }
+  function formatSize(bytes) { return bytes < 1024*1024 ? `${(bytes/1024).toFixed(1)} KB` : `${(bytes/1024/1024).toFixed(2)} MB`; }
+  function setSelected(type, file) {
+    const isPdf = type === "pdf";
+    if (isPdf) pdfFile = file; else docxFile = file;
+    const box = $(isPdf ? "pdfSelected" : "docxSelected");
+    box.classList.remove("hidden");
+    box.innerHTML = "";
+    const name = document.createElement("div"); name.className = "font-semibold break-all"; name.textContent = file.name;
+    const meta = document.createElement("div"); meta.className = "mt-1 text-xs text-slate-500"; meta.textContent = formatSize(file.size);
+    box.append(name, meta);
+    const btn = $(isPdf ? "pdfConvert" : "docxConvert");
+    btn.disabled = false; btn.className = `mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold text-white ${isPdf ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"}`;
+  }
+  function bindDrop(zoneId, inputId, type) {
+    const zone = $(zoneId), input = $(inputId);
+    zone.addEventListener("click", e => { if (!e.target.closest("button")) input.click(); });
+    input.addEventListener("change", () => { if (input.files[0]) validateAndSet(type, input.files[0]); });
+    ["dragenter","dragover"].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add("dragover"); }));
+    ["dragleave","drop"].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove("dragover"); }));
+    zone.addEventListener("drop", e => { const file = e.dataTransfer.files[0]; if (file) validateAndSet(type, file); });
+  }
+  function validateAndSet(type, file) {
+    const ok = type === "pdf" ? (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) : /\.docx$/i.test(file.name);
+    if (!ok) return toast(type === "pdf" ? "Selecciona un archivo PDF." : "Selecciona un archivo DOCX.", "error");
+    if (file.size > 50*1024*1024) return toast("El archivo supera el límite recomendado de 50 MB.", "error");
+    setSelected(type, file);
+  }
+  bindDrop("pdfDrop","pdfInput","pdf"); bindDrop("docxDrop","docxInput","docx");
+  document.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); $(b.dataset.pick).click(); }));
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function addHistory(name, type, blob) {
+    history.unshift({ name, type, size: blob.size, date: new Date(), blob });
+    renderHistory();
+  }
+  function renderHistory() {
+    const list = $("historyList"), empty = $("historyEmpty");
+    list.innerHTML = "";
+    empty.classList.toggle("hidden", history.length > 0); list.classList.toggle("hidden", history.length === 0);
+    history.forEach((item, i) => {
+      const row = document.createElement("div"); row.className = "file-row flex flex-wrap items-center justify-between gap-3 py-3";
+      const info = document.createElement("div"); info.className = "flex min-w-0 items-center gap-3";
+      const icon = document.createElement("div"); icon.className = "grid h-10 w-10 shrink-0 place-items-center rounded-xl " + (item.type === "DOCX" ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"); icon.textContent = item.type;
+      const details = document.createElement("div"); details.className = "min-w-0";
+      const name = document.createElement("div"); name.className = "truncate text-sm font-semibold"; name.textContent = item.name;
+      const meta = document.createElement("div"); meta.className = "text-xs text-slate-500"; meta.textContent = `${formatSize(item.size)} · ${item.date.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}`;
+      details.append(name, meta); info.append(icon, details);
+      const actions = document.createElement("div"); actions.className = "flex gap-1";
+      const makeButton = (label, title, handler) => { const b = document.createElement("button"); b.textContent = label; b.title = title; b.className = "rounded-lg px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"; b.addEventListener("click", handler); return b; };
+      actions.append(makeButton("Descargar","Descargar archivo",() => downloadBlob(item.blob,item.name)), makeButton("Renombrar","Renombrar archivo",() => openRename(i)), makeButton("×","Eliminar del historial",() => { history.splice(i,1); renderHistory(); }));
+      row.append(info, actions); list.append(row);
+    });
+  }
+  function openRename(i) { renameIndex = i; $("renameInput").value = safeBaseName(history[i].name); $("renameModal").classList.remove("hidden"); $("renameModal").classList.add("flex"); $("renameInput").focus(); }
+  function closeRename() { $("renameModal").classList.add("hidden"); $("renameModal").classList.remove("flex"); renameIndex = -1; }
+  $("renameCancel").addEventListener("click", closeRename);
+  $("renameSave").addEventListener("click", () => {
+    if (renameIndex < 0) return;
+    const old = history[renameIndex], base = $("renameInput").value.trim();
+    if (!base) return toast("Escribe un nombre válido.", "error");
+    const ext = old.name.toLowerCase().endsWith(".pdf") ? ".pdf" : ".docx";
+    old.name = base.replace(/\.(pdf|docx)$/i,"") + ext; closeRename(); renderHistory(); toast("Nombre actualizado.", "success");
+  });
+  $("renameModal").addEventListener("click", e => { if (e.target === $("renameModal")) closeRename(); });
+  $("clearHistory").addEventListener("click", () => { history = []; renderHistory(); toast("Historial limpiado."); });
+
+  async function convertPdfToWord() {
+    if (!pdfFile) return;
+    if (!window.pdfjsLib || !window.docx) return toast("No se pudieron cargar las bibliotecas. Comprueba tu conexión y recarga.", "error");
+    const btn = $("pdfConvert"); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Procesando PDF…';
+    try {
+      const data = new Uint8Array(await pdfFile.arrayBuffer());
+      const pdf = await pdfjsLib.getDocument({data}).promise;
+      const paragraphs = [];
+      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        let line = "", lastY = null;
+        for (const item of content.items) {
+          if (!("str" in item)) continue;
+          const y = item.transform ? item.transform[5] : null;
+          if (lastY !== null && y !== null && Math.abs(y-lastY) > 3 && line.trim()) { paragraphs.push(line.trim()); line = ""; }
+          line += item.str + (item.hasEOL ? "\n" : " ");
+          lastY = y;
+        }
+        if (line.trim()) paragraphs.push(line.trim());
+        if (pageNo < pdf.numPages) paragraphs.push("");
+      }
+      if (!paragraphs.some(p => p.trim())) throw new Error("No se encontró texto seleccionable. Es posible que el PDF sea un escaneo.");
+      const { Document, Packer, Paragraph, TextRun } = docx;
+      const children = paragraphs.map(p => new Paragraph({ children: [new TextRun({text:p})], spacing:{after:120} }));
+      const doc = new Document({ sections:[{ properties:{}, children }] });
+      const blob = await Packer.toBlob(doc);
+      const filename = safeBaseName(pdfFile.name) + ".docx";
+      downloadBlob(blob, filename); addHistory(filename,"DOCX",blob);
+      toast("PDF convertido a Word.", "success");
+    } catch (err) { console.error(err); toast(err.message || "No se pudo convertir el PDF.", "error"); }
+    finally { btn.disabled = false; btn.textContent = "Convertir a Word"; }
+  }
+  async function convertWordToPdf() {
+    if (!docxFile) return;
+    if (!window.mammoth || !window.html2pdf) return toast("No se pudieron cargar las bibliotecas. Comprueba tu conexión y recarga.", "error");
+    const btn = $("docxConvert"); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Procesando Word…';
+    let temp;
+    try {
+      const result = await mammoth.convertToHtml({arrayBuffer: await docxFile.arrayBuffer()});
+      temp = document.createElement("div");
+      temp.style.cssText = "position:fixed;left:-10000px;top:0;width:760px;padding:30px;background:#fff;color:#111;font-family:Arial,sans-serif;font-size:12pt;line-height:1.5";
+      temp.innerHTML = result.value || "<p>Documento sin texto.</p>";
+      document.body.appendChild(temp);
+      const options = { margin:12, filename:safeBaseName(docxFile.name)+".pdf", image:{type:"jpeg",quality:.96}, html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"}, jsPDF:{unit:"mm",format:"a4",orientation:"portrait"} };
+      const worker = html2pdf().set(options).from(temp).toPdf();
+      const pdf = await worker.get("pdf");
+      const blob = pdf.output("blob");
+      const filename = options.filename;
+      downloadBlob(blob,filename); addHistory(filename,"PDF",blob);
+      if (result.messages?.length) toast("Conversión terminada; algunos elementos podrían no conservarse.", "info");
+      else toast("Word convertido a PDF.", "success");
+    } catch (err) { console.error(err); toast("No se pudo convertir el DOCX. Verifica que el archivo no esté dañado.", "error"); }
+    finally { if (temp) temp.remove(); btn.disabled = false; btn.textContent = "Convertir a PDF"; }
+  }
+  $("pdfConvert").addEventListener("click", convertPdfToWord);
+  $("docxConvert").addEventListener("click", convertWordToPdf);
+
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; $("installBtn").classList.remove("hidden"); });
+  $("installBtn").addEventListener("click", async () => {
+    if (!deferredInstall) return toast("Usa el menú del navegador para instalar esta página.");
+    deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $("installBtn").classList.add("hidden");
+  });
+})();
+</script>
+</body>
+</html>
