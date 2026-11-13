@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="DocuShift">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
+  <link rel="apple-touch-icon" href="./icon.svg">
   <title>DocuShift Offline | PDF ↔ Word</title>
   <meta name="description" content="Convierte documentos PDF y Word directamente desde tu navegador.">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -274,5 +280,17 @@
   });
 })();
 </script>
+
+<script>
+  // El Service Worker debe ser un archivo externo servido desde el mismo origen.
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js")
+        .then(reg => console.info("DocuShift: Service Worker activo", reg.scope))
+        .catch(err => console.warn("No se pudo activar el modo offline:", err));
+    });
+  }
+</script>
+
 </body>
 </html>
